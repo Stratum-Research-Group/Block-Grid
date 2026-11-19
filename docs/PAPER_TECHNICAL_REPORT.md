@@ -64,20 +64,35 @@ We evaluated BlockGrid against six budget-matched baseline families (ISAB, Perce
 - **Task 1a (Identity Transport)**: BlockGrid reached **$0.0102$ MSE** (matching the $\sigma^2 = (0.1)^2 = 0.010$ background noise floor). All standard attention baselines remained stuck at **$1.0038 \text{ -- } 1.0087$ MSE** ($100\times$ higher error) despite having up to $26\times$ more parameters.
 - **Task 1b (Inner Operator Transformation)**: When required to rotate blocks via random orthogonal matrices $A^* V B^{*T}$, pure transport (`inner_op=False`) failed at $1.0087$ MSE, whereas factorized inner operators (`inner_op=True`) converged to **$0.0108$ MSE** in 2,500 steps.
 
-### 3.2 Physical Scaling to $2^{22}$ Cells ($4,194,304$ Vertices)
-Benchmarked on an NVIDIA GeForce RTX 5060 Ti (16GB VRAM) across powers of 2:
-- Full Pairwise Attention OOM-crashes at $N = 16,384$ cells.
-- ISAB and Perceiver IO OOM-crash at $N = 4,194,304$ cells.
-- **BlockGrid successfully executes full forward and backward autograd passes at $N = 4,194,304$ cells ($2^{22}$)** in **$11.3$ GB VRAM** ($539\text{ ms}$ forward latency).
+### 3.2 Physical Scaling & Megapixel Canvas Benchmarks
+Benchmarked on an NVIDIA GeForce RTX 5060 Ti (16GB VRAM):
+- **Full Pairwise Attention**: OOM-crashes at $N = 16,384$ cells ($128 \times 128$).
+- **$256 \times 256$ Grid Canvas (65,536 Cells = 1 Megapixel Equivalent)**: BlockGrid processes a batch of 4 Megapixel images ($[4, 256, 256, 4, 4, 3]$) in **$408.21\text{ ms}$** using only **$563.2\text{ MB}$** of VRAM, whereas Full Attention requires over $128\text{ GB}$ of VRAM and immediately fails.
+- **Extreme Hypercube Scaling ($2^{22} = 4,194,304$ Vertices)**: BlockGrid successfully executes forward and backward autograd passes in **$11.3\text{ GB}$ VRAM** ($539\text{ ms}$ forward latency).
+- **Streaming Flash Engine ($2^{24} = 16,777,216$ Cells)**: `FlashHyperGridEngine` streams over $16.7$ million active cells through VRAM in $485.3\text{ ms}$ consuming only **$41.0\text{ MB}$** of peak memory.
+
+### 3.3 Arbitrary Dimension Sparse Hypercube Routing (33D, $3^{22}$, and 64D)
+To circumvent dense memory limits when scaling to astronomical coordinate universes ($D \ge 33$):
+- **Additive Coordinate Projection**: Additive embedding tables require only $\mathcal{O}(D \cdot d)$ weights ($2,112$ parameters for $D=33$, $<15\text{ KB}$).
+- **Active Entity Transport**: Active packets of $M$ entities residing in $\{0, 1\}^{33}$ ($8.58$ billion potential positions), $3^{22}$ ternary graphs ($31.38$ billion positions), or $\{0, 1\}^{64}$ ($1.84 \times 10^{19}$ positions) route into $K$ landmark hubs in strictly $\mathcal{O}(M \cdot K)$ compute and memory without dense allocation.
+- **Compiler Optimization**: `SparseHyperBlockGrid` is fully verifiable under `torch.compile` (PyTorch 2.x Inductor C++ / Triton backend) with zero graph breaks.
 
 ---
 
-## 4. Operational Implementations & Ecosystem
+## 4. Visual Evidence of Matrix Transport
+
+![BlockGrid Matrix Transport Demo](../assets/viz/blockgrid_transport_demo.png)
+*Figure 1: Demonstration of synthetic cellular transport across a $16 \times 16$ mesh. (Left) Initial source cell at $[14, 5]$ with intact $8 \times 8 \times 3$ RGB matrix payload. (Center) BlockGrid routed output transported to destination cell $[6, 4]$. (Right) Ground truth target under orthogonal matrix transformation $A^* Z B^{*T}$ (reaching $0.00046$ MSE).*
+
+---
+
+## 5. Operational Implementations & Ecosystem
 1. **TensorRAM**: Sub-quadratic working memory providing $4,194,304$ matrix slots for autonomous LLM agents with sub-5ms exact recall.
 2. **TensorSAT**: Planar uncrossing satisfiability engine achieving $17.19\times$ speedups over standard attention at $65\text{k}$ tokens.
 3. **NeuralQuantumSim**: GPU quantum simulator executing 22-qubit Grover search with $99.99\%$ convergence in $318\text{ ms}$ across $4,194,304$ amplitudes.
+4. **50-Specification Enterprise Application Portfolio**: Complete formal specifications covering high-dimensional combinatorial search, gigapixel pathology, autonomous multi-agent swarms, cryo-EM reconstruction, and 1M+ extreme-context LLM memory architectures located in `/home/akarta/Projects/offline_products/block/`.
 
 ---
 
-## 5. Conclusion
+## 6. Conclusion
 Hyper-Tensor Networks break the 1D sequence and flat vector assumptions that have constrained modern deep learning. By unifying factorized hypercube coordinate routing with intact multi-linear tensor contractions, HTN provides a scalable foundation for combinatorial logic, quantum simulation, and structured neural memory.
