@@ -32,15 +32,9 @@ BlockGrid separates **inter-cell grid transport** (moving information across a v
 - [Quickstart & API Reference](docs/QUICKSTART.md)
 - [Empirical Benchmark Results & Proofs](RESULTS.md)
 - [Explanation of the 6 Competing Baseline Architectures](docs/01_competing_architectures.md)
+- [Hyperdimensional Grid Topology (2^D)](docs/HYPERDIMENSIONAL_GRID.md)
+- [Academic Technical Report & Proofs](docs/PAPER_TECHNICAL_REPORT.md)
 - [Original Research Specification](block-grid-vga-project-spec-36d5ffde.txt)
-
-### Commercial Product Blueprints
-1. [TensorRAM: Neural Virtual Memory Engine](docs/products/01_tensor_ram.md)
-2. [SimGrid Neural: Multi-Physics PDE Simulator](docs/products/02_simgrid_neural.md)
-3. [PlanarContract: Quantum Circuit & Tensor Network Optimizer](docs/products/03_planar_contract.md)
-4. [SiliconFlow: Autonomous VLSI Floorplanning](docs/products/04_silicon_flow.md)
-5. [CellMIM: Spatial Biology & Oncology AI](docs/products/05_cell_mim.md)
-6. [SwarmGrid: Warehouse Robotics Coordination](docs/products/06_swarm_grid.md)
 
 ---
 
