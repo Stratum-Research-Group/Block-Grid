@@ -2,11 +2,11 @@
   <img src="assets/blockgrid_logo.png" alt="BlockGrid Logo" width="480">
 </p>
 
-# BlockGrid (`blockvga`)
+# BlockGrid
 
 **A Lightweight, Sub-Quadratic Grid Transport & Hyperdimensional Cellular Tensor Layer**
 
-[![CI Test Suite](https://github.com/Stratum-Research-Group/block-grid-vga/actions/workflows/ci.yml/badge.svg)](https://github.com/Stratum-Research-Group/block-grid-vga/actions)
+[![CI Test Suite](https://github.com/Stratum-Research-Group/Block-Grid/actions/workflows/ci.yml/badge.svg)](https://github.com/Stratum-Research-Group/Block-Grid/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Triton GPU](https://img.shields.io/badge/Triton-Accelerated-76B900.svg)](https://github.com/openai/triton)
@@ -254,7 +254,6 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 @article{stratum2026blockgrid,
   title={BlockGrid: Sub-Quadratic Grid Transport and Bilinear Factorization for Cellular Tensor Fields},
   author={Stratum Research Group},
-  journal={arXiv preprint arXiv:2611.03153},
   year={2026}
 }
 ```

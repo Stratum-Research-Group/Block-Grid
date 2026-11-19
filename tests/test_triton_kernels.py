@@ -1,5 +1,7 @@
 import pytest
 import torch
+
+triton = pytest.importorskip("triton", reason="Triton not installed")
 from blockvga.pooling import BlockPooling
 from blockvga.kernels import triton_pool, triton_readback
 

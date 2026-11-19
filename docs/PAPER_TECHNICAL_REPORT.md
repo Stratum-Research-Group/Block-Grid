@@ -3,7 +3,7 @@
 **Authors**: Stratum Research Group  
 **Date**: November 2026  
 **Status**: Technical Report & Empirical Verification  
-**Repository**: `https://github.com/Stratum-Research-Group/block-grid-vga`
+**Repository**: `https://github.com/Stratum-Research-Group/Block-Grid`
 
 ---
 

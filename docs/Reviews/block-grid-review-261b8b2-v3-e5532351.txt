@@ -1,0 +1,352 @@
+BLOCK-GRID REVIEW v3 - Stratum-Research-Group/Block-Grid
+Commit reviewed: 261b8b2a8f24bb60f0fc95afd64bab21406a0687 (master HEAD,
+"chore: add data/ to gitignore", committed 2026-11-19 23:43 SAST; re-fetched
+immediately before this report and unchanged).
+Review date: 2026-11-19. Read-only STATIC review. Nothing in the repo was modified.
+Repository: https://github.com/Stratum-Research-Group/Block-Grid
+
+=====================================================================
+VERDICT (bounded to what was actually done)
+=====================================================================
+This is a static review plus one small executed repro: the full test suite was
+NOT executed and nothing was trained. One tiny CPU-safe numeric check
+(Appendix A) was run under torch 2.14.1+cpu and its result is in the REPRO
+RESULT section; no GPU was available for any check. What the static evidence
+supports: all 53 tracked
+Python files pass py_compile; the test suite is present and well-formed on read
+(float64 gradcheck, permutation equivariance, Hamming impulse checks, stability
+loop); and the parameter counts published in RESULTS.md (77,100 / 78,124 / 85,292
+/ 44,408) reconcile exactly with the current code by hand derivation. Whether the
+suite passes, and whether any CPU or GPU run is healthy, is UNVERIFIED here.
+Findings are ordered: code issues first, then reproducibility/methodology, then
+documentation/metadata. Evidence tiers: [demonstrated] = measured by running
+code (see REPRO RESULT); [verified] = confirmed by an external fetch or exact
+arithmetic; [static] = source evidence only, not executed; [docs].
+
+=====================================================================
+FINDINGS (one numbered list)
+=====================================================================
+
+1. [demonstrated] FlashHyperGridEngine computes different routing weights than
+   the layer it streams. blockvga/flash_engine.py:47 uses
+   softmax(W_c(s_embed) / 0.1): content logits only, hardcoded temperature 0.1.
+   The dense reference (blockvga/hyper_tensor_layer.py:146-147) uses
+   softmax((W_p(p_embed) + W_c(s_embed)) / tau) with a learnable tau clamped at
+   0.05 (default 1.0). The engine's generator interface yields payloads only, so
+   the positional term is structurally absent there, and the engine hardcodes
+   B=1 (flash_engine.py:32); total_N is accepted but unused. Effect: whenever
+   positional logits or tau != 0.1 influence the weights, streamed slot latents
+   differ from the dense layer's; this is a route-computation difference, not a
+   guaranteed mismatch on every input. The inspected flash-engine test
+   (tests/test_flash_engine.py) asserts only output shape and absence of NaN; it
+   has no equivalence assertion against the dense layer. Measured (Appendix A,
+   run on CPU torch 2.14.1 at this commit, identical weights in both paths):
+   max |Z_dense - Z_flash| = 1.9187 against a signal scale of 2.899, with layer
+   tau = 1.0 vs the engine's hardcoded 0.1 and the W_p positional term omitted.
+   The comparison is on slot latents Z, which is what the engine returns by
+   design; the dense reference used in the repro was source-checked against the
+   layer's forward steps 1-4.
+   Fix: make the engine compute w_write exactly as the core layer does
+   (positional embeddings + clamped learnable tau), or document the engine
+   explicitly as a content-only approximate router with B=1 support only.
+   Gate: repro script passes with diff ~ 0 after the fix.
+   https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/blockvga/flash_engine.py#L47
+
+2. [static] GeneralizedHyperTensorLayer silently ignores num_heads. The config
+   exposes num_heads (blockvga/tensor_cell_config.py) and the sibling modules
+   (assignment.py:73, hyper_layer.py:65, sparse_hyper_layer.py:92) all reshape
+   logits into per-head simplexes, but hyper_tensor_layer.py:147 and :152 take
+   softmax over the full K, so num_heads>1 changes nothing in this layer. The
+   config's R field is also never read by this layer (no routing_features path).
+   Fix: implement the per-head simplex here or raise on num_heads != 1; wire R
+   or remove the field.
+   https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/blockvga/hyper_tensor_layer.py#L147
+
+3. [static] UnifiedBlockGrid mode="2d" mishandles a 3-element cell shape. For
+   cell_tensor_shape=(P, Q, F) the third entry is dropped at config time and F
+   is forced to 1 (blockvga/unified.py:63-69). A matching 6-D input
+   [B,H,W,P,Q,F] then passes the dim checks untouched (only dims 4 and 5 are
+   reshaped, unified.py:109-113) and fails later on a bare assert inside
+   BlockGridLayer.forward (layer.py:50) instead of a clear configuration error;
+   a 5-D input is silently interpreted as F=1. Separately, the output squeeze
+   test (unified.py:115) compares the raw argument against a tuple, so passing
+   cell_tensor_shape as a list returns a 6-D tensor with a trailing F=1 axis.
+   Fix: validate cell_tensor_shape length in 2d mode with a clear error (or
+   plumb F through), and normalize the argument to a tuple at entry.
+   https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/blockvga/unified.py#L63
+
+4. [static] The Triton kernels are unreachable from the library. BlockPooling is
+   only ever constructed with use_triton=False (repo-wide grep: the flag exists
+   only inside pooling.py), so BlockGridLayer / HyperGridLayer /
+   UnifiedBlockGrid always run the einsum path; the fused autograd kernel is
+   exercised only by tests that call it directly. The README's
+   "Triton-Accelerated" badge and Example 4 wording ("evaluated via custom
+   Triton autograd kernels") describe integration that is not wired up.
+   Fix: expose use_triton through the layer configs, or soften the README.
+   Gate: tests/test_triton_kernels.py and tests/test_fused_autograd.py (CUDA).
+   https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/blockvga/pooling.py#L32
+
+5. [static] Triton tests fail collection on torch installs without triton.
+   tests/test_triton_kernels.py:4 and tests/test_fused_autograd.py:3 import
+   blockvga.kernels / blockvga.autograd_kernel at module top, and those modules
+   "import triton" unconditionally (kernels.py:2, autograd_kernel.py:2). On a
+   triton-less torch (CPU wheel, macOS) pytest errors at collection instead of
+   skipping, despite the CUDA skipifs. CI is unaffected only because the Linux
+   CUDA torch wheel bundles triton.
+   Fix: pytest.importorskip("triton") before those imports.
+
+6. [static] Inconsistent input validation in the hyper layer.
+   HyperLandmarkAssignment ignores routing_features when R=0 and proceeds
+   without them when R>0 (blockvga/hyper_layer.py:105-106), while the 2D
+   LandmarkAssignment raises a clear error for the same case
+   (blockvga/assignment.py:126-129). And an invalid assignment string leaves
+   logits_write as the float 0.0, crashing with AttributeError inside
+   _compute_simplex (assignment.py:132-136) rather than a config-time error.
+   Fix: mirror the 2D validation in the hyper layer; validate the assignment
+   string in __init__.
+
+7. [static] Duplicated dead line: blockvga/assignment.py:150-152 ends with two
+   identical "return w_write, w_read" statements. Harmless; delete one.
+
+8. [static] Neighborhood operator: two undocumented behaviors to confirm as
+   intended (not claimed as bugs). (a) use_neighborhood=True with a non-binary
+   grid_shape silently disables the operator (unified.py:50-57). (b) When
+   active, the operator's output replaces the transport output
+   (unified.py:92-104) rather than combining residually; every other submodule
+   in the library combines residually. If replacement is the design, document
+   it; otherwise add a residual and raise/warn on (a).
+
+9. [static] Scaling numbers and benchmark table rows are not reproducible from
+    committed scripts, and the stress timer measures a cold call.
+    experiments/stress_test_scaling.py sweeps only to 128x128 and benchmarks 4
+    models, but the README scaling table runs to 2048x2048 (2^22) and the
+    "Empirical Benchmarks" table lists runtime/memory for 6 architectures; the
+    paper's 2^22 (11.3 GB, 539 ms) and Flash engine (41 MB, 485 ms) figures have
+    no committed producer either. The latency printed is a single timed
+    forward+backward: the code comments that region "Warmup"
+    (stress_test_scaling.py:47) but measures and reports that same first call.
+    The CUDA context itself is initialized earlier (model and input tensors are
+    created before t0), but first-call work for these specific shapes (kernel
+    selection, cuBLAS handle setup) may still fall inside the timed region. The
+    script's CPU
+    fallback (line 75) also calls torch.cuda.reset_peak_memory_stats /
+    max_memory_allocated unguarded, which raise on CPU-only torch builds
+    (suspected from torch API behavior; not executed here).
+    Fix: commit the script that produced the published tables (or extend
+    stress_test_scaling.py to the published sizes and all 6 baselines), time
+    warmed repeated iterations, guard the CUDA memory calls.
+
+10. [docs] Single-seed benchmark conclusions. experiments/run_benchmark.py
+    trains each arm once at seed 42, 1000 steps. RESULTS.md states strong
+    outcomes from that ("failed completely", "two orders of magnitude" in the
+    paper abstract). The results may hold, but one seed cannot show it.
+    Fix: 3+ seeds, report mean and spread.
+    Gate: rerun experiments/run_benchmark.py across seeds and update RESULTS.md.
+
+11. [docs] "Budget-matched" is undefined and does not mean parameter-matched.
+    docs/PAPER_TECHNICAL_REPORT.md:63: "six budget-matched baseline families".
+    The term is defined nowhere in the repo, and the paper's own table shows the
+    baselines at 12x-26x BlockGrid's parameter count. If the intended budget is
+    training steps or wall-clock, say so explicitly.
+    https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/docs/PAPER_TECHNICAL_REPORT.md#L63
+
+12. [docs] "Proposition 1" (Hamming-distance fidelity) is stated without the
+    conditions that would make it true. docs/HYPERDIMENSIONAL_GRID.md section 3A
+    and the paper section 2.1 claim the dot product of factorized coordinate
+    embeddings p(x) = sum_i E_i(x_i) "directly reflects the exact Hamming
+    distance". The actual formula gives p(x)^T p(y) = sum_{i,j} E_i(x_i).E_j(y_j),
+    which includes cross-axis terms the architecture never constrains. Concrete
+    counterexample with D=2, d=1, E_1 = [1, 0], E_2 = [1, 1]:
+    p(0,0).p(0,1) = 2*2 = 4 while p(0,0).p(1,0) = 2*1 = 2, but both pairs have
+    Hamming distance 1. The construction CAN represent Hamming fidelity (choose
+    orthogonal axis subspaces with equality-coded axis terms); it is not a
+    property of the factorization itself.
+    Fix: restate as a trainable desideratum, or add the orthogonality/encoding
+    constraint and prove it under that constraint. The underlying architecture
+    does not depend on this claim.
+
+13. [static] SyntheticBlockTransportDataset draws from a stateful RNG and
+    ignores idx (experiments/dataset.py:41-43). Concrete consequences supported
+    by the source: episodes depend on access order and count, and under
+    DataLoader(num_workers>0) each worker inherits a copy of the same RNG state,
+    producing duplicate episode streams across workers. The committed experiment
+    scripts iterate sequentially with one process, so the published results are
+    not affected as far as the source shows.
+    Fix (only if DataLoader use is planned): derive each episode from a
+    per-index seeded generator.
+
+14. [verified] The README's arXiv citation resolves to a different paper.
+    README.md:257 cites "arXiv preprint arXiv:2611.03153" for BlockGrid.
+    Fetching https://arxiv.org/abs/2611.03153 returns "Any uniformly
+    rectifiable set is contained in a set with Poincare inequality" by Hyde,
+    Villa and Violo (math.CA, submitted 2026-11-02). The ID belongs to someone
+    else's preprint.
+    Fix: remove the bibtex entry or replace the ID once the real preprint
+    exists; verify by fetching the replacement ID.
+    https://github.com/Stratum-Research-Group/Block-Grid/blob/261b8b2a8f24bb60f0fc95afd64bab21406a0687/README.md
+
+15. [verified] Dead repository links from before the rename. The README CI badge
+    (README.md:12) and the paper's Repository field
+    (docs/PAPER_TECHNICAL_REPORT.md:7) point to
+    https://github.com/Stratum-Research-Group/block-grid-vga, which does not
+    resolve (fetch returns not-found). Fix: repoint to
+    https://github.com/Stratum-Research-Group/Block-Grid.
+
+16. [verified] LICENSE link target absent. The README "License & Citation"
+    section states MIT and links a LICENSE file, and the badge says MIT, but no
+    LICENSE file is tracked (confirmed via git ls-files). pyproject.toml also
+    has no license field. Observation only; how to handle the licensing side is
+    the author's call. Fixing the link means adding the file or changing the
+    text.
+
+17. [verified] Build artifacts tracked in git. blockvga.egg-info/ (PKG-INFO,
+    SOURCES.txt, dependency_links.txt, requires.txt, top_level.txt) is committed
+    even though .gitignore lists *.egg-info/; gitignore does not untrack
+    existing files. Fix: git rm -r --cached blockvga.egg-info.
+
+18. [docs] docs/QUICKSTART.md:82 says "All 18 tests cover". Stale: the suite has
+    33 test functions and a statically estimated 38 pytest items after the
+    6-way baseline parametrization (pytest was not run, so collection was not
+    measured; the README's "38" matches the estimate).
+
+19. [static] Packaging extras. experiments/cifar_cells.py imports torchvision,
+    which is declared neither in pyproject.toml dependencies nor in the dev
+    extra, and is absent from uv.lock (verified by grep); scripts/visualize_transport.py
+    needs matplotlib, likewise undeclared. experiments/common.py:17-25
+    estimate_flops returns 2*params*N, which is not a FLOP estimate of these
+    models and is unused anywhere. pyproject ships experiments/ in the wheel.
+    Optional: a "viz"/"cifar" extra, project URLs, and either repair or delete
+    estimate_flops. CI could use the CPU torch index to skip the multi-GB CUDA
+    wheel per matrix job.
+
+=====================================================================
+COVERAGE
+=====================================================================
+Read in full: all 53 tracked Python files (blockvga 18, baselines 8,
+experiments 8, tests 17, scripts 2), plus pyproject.toml,
+.github/workflows/ci.yml, .gitignore, both configs, docs/ (all 4), README.md,
+RESULTS.md, the committed project spec txt, assets/viz/index.html, and the git
+log. uv.lock was searched by grep only (torchvision and matplotlib absent), not
+read in full. All 53 Python files pass py_compile. Test inventory counted
+statically: 33 test functions, an estimated 38 pytest items with
+parametrization (collection not executed). RESULTS.md parameter counts
+re-derived by hand from the code: all four published counts reconcile exactly.
+External fetches performed: the arXiv abs page (finding 14) and the old org repo
+URL (finding 15); git tracked-file listing (findings 16, 17).
+
+OPEN GATES (full suite not executed; no GPU available):
+- The entire pytest suite (CPU-feasible on a normal machine: pytest tests/ -v;
+  CI covers Python 3.10-3.13 but CI status was not checked).
+- CUDA-only gates: test_triton_kernels, test_fused_autograd, test_flash_engine,
+  test_hypercube_d20_cuda, test_hyper_tensor_d20_grid_with_matrix_cells_cuda,
+  test_sparse_hyper_64d_cuda.
+- Nothing else was executed; the full pytest suite and all GPU gates remain
+  unrun.
+- torch.compile zero-graph-break claim; every README/RESULTS/paper benchmark,
+  scaling, memory and latency number; CIFAR pilot; megapixel and 2^22 runs.
+
+Numerical coverage note (not a finding): GeneralizedHyperTensorLayer softmaxes
+in the working dtype (hyper_tensor_layer.py:147/152) while its siblings upcast
+to fp32 first (assignment.py:75-76, sparse_hyper_layer.py:93-94). The fp16 probe
+in Appendix A produced no NaN on CPU torch 2.14.1, so no defect is claimed and
+no fix is demanded; half-precision behavior on GPU workloads is simply untested.
+
+=====================================================================
+DO-NOT-TOUCH BOUNDARIES
+=====================================================================
+- Do not change the routing math in blockvga/assignment.py, pooling.py,
+  slotmix.py, inner.py, hyper_layer.py, hyper_tensor_layer.py or
+  sparse_hyper_layer.py beyond findings 1, 2 and 6. The planar-uncrossed
+  parameterization, the factorized two-sided inner operators and the additive
+  coordinate embeddings are the project; nothing reviewed here undermines them.
+- Do not edit RESULTS.md numbers by hand; only regenerate them from runs.
+- Do not tune baselines/ to narrow the gap; methodology fixes belong in the
+  benchmark scripts and the write-up.
+- Findings 5, 9, 13, 18 change scaffolding and docs, not what tests assert.
+
+=====================================================================
+REPRO RESULT
+=====================================================================
+Run on CPU torch 2.14.1+cpu at commit 261b8b2 (tiny shapes, ~1 second, no
+installs or repo changes).
+Part 1 (finding 1): DIVERGENCE CONFIRMED. max |Z_dense - Z_flash| = 1.9187 with
+signal scale 2.899; the dense path used tau = 1.0 and included the positional
+term, the engine path used its hardcoded 0.1 and content-only logits. Compared
+quantities are the slot latents the engine is designed to return.
+Part 2 (fp16 probe): NaN NOT reproduced. No separate finding; see the numerical
+coverage note below.
+
+=====================================================================
+APPENDIX A: REPRO SCRIPT (CPU-safe, tiny shapes, needs only torch)
+=====================================================================
+"""Repro for Block-Grid review finding 1 (Flash engine routing divergence)
+and the fp16 numerical probe (open numerical question, not a finding).
+
+CPU-safe, tiny shapes. Needs only torch. Run from the repo root:
+    python block-grid-flash-repro.py
+Reviewed commit: 261b8b2a8f24bb60f0fc95afd64bab21406a0687
+"""
+import torch
+import torch.nn.functional as F
+from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockvga.hyper_tensor_layer import GeneralizedHyperTensorLayer
+from blockvga.flash_engine import FlashHyperGridEngine
+
+torch.manual_seed(0)
+
+cfg = GeneralizedHyperTensorConfig(
+    outer_grid=(2, 2, 2),      # D=3, N=8 cells
+    cell_tensor_shape=(2, 2),
+    K=4, d=8,
+    inner_transform=True,
+)
+
+layer = GeneralizedHyperTensorLayer(cfg)
+engine = FlashHyperGridEngine(cfg, chunk_size=8, device="cpu")
+engine.core.load_state_dict(layer.state_dict())  # identical weights
+
+X = torch.randn(1, 8, 2, 2)
+B, N, V = 1, 8, 4
+flat = X.view(B, N, V)
+
+# --- Dense reference: the routing the layer itself computes ----------------
+grids = torch.meshgrid(*[torch.arange(2)] * 3, indexing="ij")
+pos = torch.stack([g.flatten() for g in grids], dim=-1).unsqueeze(0)  # [1, 8, 3]
+p_embed = sum(emb(pos[..., i]) for i, emb in enumerate(layer.axis_embeds))
+s_embed = layer.summary_mlp(flat)
+tau = torch.clamp(torch.exp(layer.log_tau), min=0.05)
+w_dense = torch.softmax((layer.W_p(p_embed) + layer.W_c(s_embed)) / tau, dim=-1)
+
+G = layer.slotmix.get_mixing_matrix()
+Z_dense = torch.einsum("bnv,bnk->bkv", flat, w_dense)
+Z_dense = torch.einsum("lk,bkv->blv", G, Z_dense).view(B, cfg.K, 2, 2)
+Z_dense = layer.cell_op(Z_dense)
+
+# --- Flash engine path on the same data and weights ------------------------
+def gen():
+    yield X
+
+Z_flash = engine.forward_streamed(gen, total_N=8)
+
+diff = (Z_dense - Z_flash).abs().max().item()
+scale = Z_dense.abs().max().item()
+print("=== Finding 1: Flash engine vs dense layer routing ===")
+print(f"layer learnable tau: {tau.item():.4f}  (engine hardcodes /0.1, flash_engine.py:47)")
+print(f"engine drops the W_p(p_embed) positional term the layer uses")
+print(f"max |Z_dense - Z_flash| = {diff:.6f}  (signal scale {scale:.3f})")
+print("DIVERGENCE CONFIRMED" if diff > 1e-3 * max(scale, 1.0) else "close on this input")
+
+# --- Finding 8: fp16 softmax without the upcast the sibling modules have ---
+print("\n=== fp16 probe: GeneralizedHyperTensorLayer routing in half precision ===")
+try:
+    layer16 = GeneralizedHyperTensorLayer(cfg).half()
+    with torch.no_grad():
+        for p_ in layer16.summary_mlp.parameters():
+            p_.mul_(40.0)  # force large routing logits
+    X16 = torch.randn(1, 8, 2, 2, dtype=torch.float16) * 4.0
+    out16 = layer16(X16)
+    nan = torch.isnan(out16).any().item()
+    print(f"fp16 forward produced NaN: {nan}  (if True: projection logits overflow to inf before softmax; softmax itself max-subtracts and is stable)")
+    print("(sibling modules assignment.py:75-76 and sparse_hyper_layer.py:93-94 upcast to fp32 first)")
+except Exception as e:
+    print(f"fp16 check inconclusive on this torch build: {type(e).__name__}: {e}")

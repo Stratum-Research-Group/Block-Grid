@@ -31,8 +31,8 @@ class UnifiedBlockGrid(nn.Module):
     ):
         super().__init__()
         self.mode = mode.lower()
-        self.grid_shape = grid_shape
-        self.cell_tensor_shape = cell_tensor_shape
+        self.grid_shape = tuple(grid_shape)
+        self.cell_tensor_shape = tuple(cell_tensor_shape)
         self.use_neighborhood = use_neighborhood
 
         if self.mode == "hyper":
@@ -60,13 +60,15 @@ class UnifiedBlockGrid(nn.Module):
         elif self.mode == "2d":
             if len(grid_shape) != 2:
                 raise ValueError(f"mode='2d' requires a 2D grid_shape (H, W), got {grid_shape}")
-            if len(cell_tensor_shape) != 2:
-                # Interpret as (P, Q) with F=1
-                P, Q = cell_tensor_shape[0], cell_tensor_shape[1] if len(cell_tensor_shape) > 1 else 1
-                F_dim = 1
-            else:
+            if len(cell_tensor_shape) == 2:
                 P, Q = cell_tensor_shape[0], cell_tensor_shape[1]
                 F_dim = 1
+            elif len(cell_tensor_shape) == 3:
+                P, Q, F_dim = cell_tensor_shape
+            else:
+                raise ValueError(
+                    f"mode='2d' requires cell_tensor_shape of length 2 (P, Q) or 3 (P, Q, F), got {cell_tensor_shape}"
+                )
 
             self._2d_config = BlockGridConfig(
                 H=grid_shape[0],

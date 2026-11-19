@@ -1,4 +1,4 @@
-# Quickstart & API Reference: BlockGrid (`blockvga`)
+# Quickstart & API Reference: BlockGrid
 
 `blockvga` is a PyTorch layer for transporting and transforming structured tensor blocks on large virtual grids in linear time $\mathcal{O}(N \cdot K)$.
 

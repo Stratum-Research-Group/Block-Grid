@@ -18,7 +18,10 @@ class BlockGridLayer(nn.Module):
         self.config = config
         
         self.assignment = LandmarkAssignment(config)
-        self.pooling = BlockPooling(normalize_slots=config.normalize_slots)
+        self.pooling = BlockPooling(
+            normalize_slots=config.normalize_slots,
+            use_triton=config.use_triton
+        )
         self.slotmix = SlotMixing(config)
         
         if config.inner_op:

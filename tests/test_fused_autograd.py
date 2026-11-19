@@ -1,5 +1,7 @@
 import pytest
 import torch
+
+triton = pytest.importorskip("triton", reason="Triton not installed")
 from blockvga.autograd_kernel import triton_fused_autograd_pool
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Triton requires CUDA")

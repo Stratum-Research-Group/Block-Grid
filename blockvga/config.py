@@ -18,5 +18,6 @@ class BlockGridConfig:
     slot_mix: str = "free"              # "free" | "symmetric" | "planar_uncrossed"
     tied_readback: bool = True          # reuse assignment weights for readback
     inner_op: bool = False              # apply per-slot 2-sided transforms L_k
+    use_triton: bool = False            # use fused OpenAI Triton kernel for pooling on CUDA
     gamma_init: float = 0.1             # residual scale initialization
     layernorm_cells: bool = False       # optional layer norm

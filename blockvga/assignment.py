@@ -47,6 +47,11 @@ class LandmarkAssignment(nn.Module):
             raise ValueError(f"K ({config.K}) must be divisible by num_heads ({config.num_heads})")
         self.slots_per_head = config.K // config.num_heads
 
+        if "pos" not in config.assignment and "content" not in config.assignment:
+            raise ValueError(
+                f"Invalid assignment mode '{config.assignment}'. Must contain 'pos' or 'content' (e.g. 'pos+content', 'pos', 'content')"
+            )
+
         self.W_p = nn.Linear(d, K, bias=False)
         self.W_c = nn.Linear(d, K, bias=False)
         
@@ -146,7 +151,5 @@ class LandmarkAssignment(nn.Module):
             if "content" in self.config.assignment:
                 logits_read = logits_read + self.W_c_read(s_a)
             w_read = self._compute_simplex(logits_read, V.dtype)
-            
-        return w_write, w_read
             
         return w_write, w_read

@@ -73,6 +73,11 @@ class GeneralizedHyperTensorLayer(nn.Module):
         d = config.d
         K = config.K
 
+        self.num_heads = config.num_heads
+        if K % self.num_heads != 0:
+            raise ValueError(f"K ({K}) must be divisible by num_heads ({self.num_heads})")
+        self.slots_per_head = K // self.num_heads
+
         # Axis embedding tables for outer hyper-coordinates
         self.axis_embeds = nn.ModuleList([
             nn.Embedding(s, d) for s in config.outer_grid
@@ -110,6 +115,16 @@ class GeneralizedHyperTensorLayer(nn.Module):
         self.cell_proj = nn.Linear(config.cell_volume, config.cell_volume)
         self.gamma = nn.Parameter(torch.tensor(0.1))
 
+    def _compute_simplex(self, logits: torch.Tensor, V_dtype: torch.dtype) -> torch.Tensor:
+        B, N, K = logits.shape
+        tau = torch.clamp(torch.exp(self.log_tau), min=0.05)
+        logits_reshaped = logits.view(B, N, self.num_heads, self.slots_per_head)
+        if V_dtype in (torch.float16, torch.bfloat16):
+            w = F.softmax((logits_reshaped / tau).float(), dim=-1).to(V_dtype)
+        else:
+            w = F.softmax(logits_reshaped / tau, dim=-1)
+        return w.view(B, N, K)
+
     def forward(self, X: torch.Tensor, positions=None):
         """
         X: [B, S_1, ..., S_D, T_1, ..., T_M] or [B, N, T_1, ..., T_M]
@@ -143,13 +158,14 @@ class GeneralizedHyperTensorLayer(nn.Module):
         flat_cells = X_reshaped.view(B, N, V_cell)
         s_embed = self.summary_mlp(flat_cells)
 
-        tau = torch.clamp(torch.exp(self.log_tau), min=0.05)
-        w_write = F.softmax((self.W_p(p_embed) + self.W_c(s_embed)) / tau, dim=-1)
+        logits_write = self.W_p(p_embed) + self.W_c(s_embed)
+        w_write = self._compute_simplex(logits_write, X.dtype)
 
         if self.config.tied_readback:
             w_read = w_write
         else:
-            w_read = F.softmax((self.W_p_read(p_embed) + self.W_c_read(s_embed)) / tau, dim=-1)
+            logits_read = self.W_p_read(p_embed) + self.W_c_read(s_embed)
+            w_read = self._compute_simplex(logits_read, X.dtype)
 
         # 2. Pool whole cell tensors into K slots:
         # Einsum over N: X_flat [B, N, V_cell], w_write [B, N, K] -> Z_flat [B, K, V_cell]

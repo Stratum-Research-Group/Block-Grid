@@ -102,7 +102,9 @@ class HyperLandmarkAssignment(nn.Module):
         mean_v = V_flat.mean(dim=(-3, -2)) # [B, N, F]
         s_embed = self.summary_mlp(mean_v) # [B, N, d]
 
-        if self.linear_r is not None and routing_features is not None:
+        if self.linear_r is not None:
+            if routing_features is None:
+                raise ValueError(f"routing_features must be provided when R={self.config.R} > 0")
             s_embed = s_embed + self.linear_r(routing_features)
 
         logits_write = self.W_p(p_embed) + self.W_c(s_embed)
