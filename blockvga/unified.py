@@ -5,6 +5,7 @@ from blockvga.config import BlockGridConfig
 from blockvga.layer import BlockGridLayer
 from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
 from blockvga.hyper_tensor_layer import GeneralizedHyperTensorLayer
+from blockvga.neighborhood import HypercubeNeighborhoodOperator
 
 class UnifiedBlockGrid(nn.Module):
     """
@@ -26,11 +27,13 @@ class UnifiedBlockGrid(nn.Module):
         slot_mix: str = "planar_uncrossed",                 # "planar_uncrossed", "free", "symmetric"
         inner_transform: bool = True,                       # factorized tensor contractions inside cells
         tied_readback: bool = False,                        # untied read/write routing
+        use_neighborhood: bool = False,                     # 1-bit Hamming distance neighborhood operator
     ):
         super().__init__()
         self.mode = mode.lower()
         self.grid_shape = grid_shape
         self.cell_tensor_shape = cell_tensor_shape
+        self.use_neighborhood = use_neighborhood
 
         if self.mode == "hyper":
             self.hyper_config = GeneralizedHyperTensorConfig(
@@ -44,6 +47,14 @@ class UnifiedBlockGrid(nn.Module):
                 tied_readback=tied_readback,
             )
             self.core = GeneralizedHyperTensorLayer(self.hyper_config)
+            if self.use_neighborhood and all(s == 2 for s in grid_shape):
+                self.neighborhood_op = HypercubeNeighborhoodOperator(
+                    D=len(grid_shape),
+                    cell_features=self.hyper_config.cell_volume,
+                    isotropic=True
+                )
+            else:
+                self.neighborhood_op = None
             self._2d_layer = None
 
         elif self.mode == "2d":
@@ -77,7 +88,21 @@ class UnifiedBlockGrid(nn.Module):
 
     def forward(self, X: torch.Tensor, routing_features=None, positions=None):
         if self.mode == "hyper":
-            return self.core(X, positions=positions)
+            out = self.core(X, positions=positions)
+            if self.neighborhood_op is not None:
+                # out is [B, S_1, ..., S_D, T_1, ..., T_M]
+                # reshape cell tensor to flat feature for neighborhood operator
+                orig_shape = out.shape
+                B = orig_shape[0]
+                D = len(self.grid_shape)
+                cell_shape = orig_shape[1 + D:]
+                V_cell = self.hyper_config.cell_volume
+                
+                # [B, 2, ..., 2, V_cell]
+                out_flat_cells = out.view(B, *self.grid_shape, V_cell)
+                out_neigh = self.neighborhood_op(out_flat_cells)
+                out = out_neigh.view(*orig_shape)
+            return out
         else:
             # 2D layer expects [B, H, W, P, Q, F]
             # Ensure input matches 2D layer dims
