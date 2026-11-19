@@ -1,0 +1,8 @@
+batch_size: 64
+epochs: 5
+lr: 0.0003
+weight_decay: 0.01
+grad_clip: 1.0
+device: "cuda"
+seed: 42
+data_dir: "./data"

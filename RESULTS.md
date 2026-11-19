@@ -58,3 +58,20 @@ In Task 1b, the destination must receive the transformed tensor $A^* V_{\text{sr
 - **`inner_op=True` completely solves the task**: In 2,500 steps, it breaks symmetry, aligns the slot matrices $A_k, B_k$ with $A^*, B^*$, and drives the validation MSE down to **$0.0108$**, matching the background noise limit.
 - **Factorized efficiency**: The inner operator required only $8,192$ additional parameters ($2 \times K \times 8 \times 8$), compared to $(64)^2 = 4,096$ per head for flattened alternatives, preserving algebraic tensor structure with minimal parameter overhead.
 
+---
+
+## 5. Stage 2 Results: CIFAR-10 Grid Classification Smoke Test
+
+In Stage 2, we tested standard 2D image patch classification on an $8 \times 8$ grid of $4 \times 4$ RGB patches ($H=8, W=8, P=4, Q=4, F=3$) over a 5-epoch pilot.
+
+| Model Architecture | Parameters | Epoch 1 Val Acc | Epoch 5 Val Acc | Training Time (5 epochs) | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **BlockGrid** (raw $F=3$) | **44,408** | 14.61% | 21.50% | **48.83s** | Stable learning, bounded by $F=3$ channels |
+| **Perceiver IO Baseline** | 145,544 | 20.04% | **43.44%** | 58.71s | Gate G4 Open (needs input projection $F'=12$) |
+
+### Architectural Insight:
+- In BlockGrid, the residual combine projection (`proj: Linear(F, F)`) operates directly on the feature channel dimension $F$. With raw RGB images ($F=3$), the internal representation bandwidth is only 3 scalar channels per patch coordinate.
+- Perceiver immediately flattens each patch into a $P \times Q \times F = 4 \times 4 \times 3 = 48$-dimensional representation and queries it with 48-dimensional latents.
+- As noted in Section 5 of the spec, for real image patches, BlockGrid requires the optional input feature expansion ($F' = 12$ or $F' = 32$) to match Perceiver's representation capacity on semantic classification tasks.
+
+
