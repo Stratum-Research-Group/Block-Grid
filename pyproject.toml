@@ -19,6 +19,11 @@ dev = [
     "pytest>=7.0.0",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["blockvga*", "baselines*", "experiments*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]

@@ -1,5 +1,13 @@
 README.md
 pyproject.toml
+baselines/__init__.py
+baselines/axial.py
+baselines/common.py
+baselines/full_attn.py
+baselines/isab.py
+baselines/linear_attn.py
+baselines/local_conv.py
+baselines/perceiver.py
 blockvga/__init__.py
 blockvga/assignment.py
 blockvga/config.py
@@ -13,3 +21,10 @@ blockvga.egg-info/SOURCES.txt
 blockvga.egg-info/dependency_links.txt
 blockvga.egg-info/requires.txt
 blockvga.egg-info/top_level.txt
+tests/test_baselines.py
+tests/test_gradients.py
+tests/test_permutation.py
+tests/test_planar_uncrossed.py
+tests/test_shapes.py
+tests/test_stability.py
+tests/test_symmetry_restriction.py
