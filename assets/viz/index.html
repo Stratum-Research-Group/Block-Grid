@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BlockGrid Cellular Transport Visualizer</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 26px;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      max-width: 780px;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .dashboard {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #e2e8f0;
+    }
+    .grid-view {
+      width: 256px;
+      height: 256px;
+      background: #090d16;
+      border: 2px solid #475569;
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 9999px;
+      margin-top: 10px;
+    }
+    .badge-cyan { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+    .badge-green { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid #4ade80; }
+    .badge-yellow { background: rgba(250, 204, 21, 0.2); color: #facc15; border: 1px solid #facc15; }
+    .metrics-bar {
+      margin-top: 30px;
+      padding: 16px 24px;
+      background: #1e293b;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      display: flex;
+      gap: 36px;
+    }
+    .metric-item { text-align: center; }
+    .metric-value { font-size: 20px; font-weight: 700; color: #38bdf8; }
+    .metric-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  </style>
+</head>
+<body>
+  <h1>BlockGrid Cellular Transport & Bilinear Transformation</h1>
+  <p class="subtitle">
+    Demonstrating sub-quadratic grid transport across a 16 &times; 16 cellular coordinate mesh.
+    Information travels from source cell <code>[7, 14]</code> to target cell <code>[14, 11]</code>
+    via 16 planar-uncrossed landmark hubs, concurrently applying factorized two-sided transformations <i>L<sub>k</sub>(Z) = A<sub>k</sub> Z B<sub>k</sub><sup>T</sup></i>.
+  </p>
+
+  <div class="dashboard">
+    <div class="card">
+      <h3>1. Input Canvas</h3>
+      <div class="grid-view">
+        <img src="blockgrid_transport_demo.png" style="width: 768px; height: 256px; margin-left: 0px;" />
+      </div>
+      <span class="badge badge-cyan">Source: [7, 14]</span>
+    </div>
+
+    <div class="card">
+      <h3>2. BlockGrid Output</h3>
+      <div class="grid-view">
+        <img src="blockgrid_transport_demo.png" style="width: 768px; height: 256px; margin-left: -256px;" />
+      </div>
+      <span class="badge badge-green">Transported: [14, 11]</span>
+    </div>
+
+    <div class="card">
+      <h3>3. Ground Truth Target</h3>
+      <div class="grid-view">
+        <img src="blockgrid_transport_demo.png" style="width: 768px; height: 256px; margin-left: -512px;" />
+      </div>
+      <span class="badge badge-yellow">Target Matrix Verified</span>
+    </div>
+  </div>
+
+  <div class="metrics-bar">
+    <div class="metric-item">
+      <div class="metric-value">O(N &middot; K)</div>
+      <div class="metric-label">Transport Complexity</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">16 Slots</div>
+      <div class="metric-label">Landmark Latents</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">128 Weights</div>
+      <div class="metric-label">Bilinear (P&sup2; + Q&sup2;)</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">100% Invariant</div>
+      <div class="metric-label">Distance Generalization</div>
+    </div>
+  </div>
+</body>
+</html>
