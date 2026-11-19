@@ -36,7 +36,6 @@ It natively scales from planar $H \times W$ spatial grids to $D$-dimensional Boo
   - [Example 3: Sparse 33D Hypercube Routing](#example-3-sparse-33d-hypercube-routing)
   - [Example 4: Unified 2^22 Hypercube with Triton](#example-4-unified-222-hypercube-with-triton)
 - [Empirical Benchmarks & Baseline Comparisons](#-empirical-benchmarks--baseline-comparisons)
-- [Production Application Portfolio (50 Detailed Specs)](#-production-application-portfolio-50-detailed-specs)
 - [Running the Test Suite](#-running-the-test-suite)
 - [License & Citation](#-license--citation)
 
@@ -231,18 +230,6 @@ Evaluated on synthetic transport tasks against 6 competing sequence & attention 
 | **Linear Attention** | $\mathcal{O}(N)$ | 95 MB | 12.1 ms | 1.0051 | 1.0078 | ❌ (Flattened 1D) |
 | **Local Conv2D** | $\mathcal{O}(N \cdot k_w^2)$ | 48 MB | 4.2 ms | 1.0094 | 1.0112 | ❌ (Flattened 1D) |
 | **BlockGrid (Ours)** | **$\mathcal{O}(N \cdot K)$** | **56 MB** | **8.6 ms** | **0.0102** | **0.0108** | **✅ Intact $(P \times Q \times F)$** |
-
----
-
-## 💼 Production Application Portfolio (50 Detailed Specs)
-
-A complete enterprise blueprint portfolio of **50 persistent application specifications** is located in [`/home/akarta/Projects/offline_products/block/`](file:///home/akarta/Projects/offline_products/block/README.md) covering:
-1. **Combinatorial Optimization & Search**: State-Space Trees ($3^{22}$), SAT Solvers, FPGA Routing, Traveling Salesperson, Datacenter Fabrics, Quantum Compilers.
-2. **Computational Biology & Chemistry**: Protein Conformational Dihedrals (33D), Single-Cell RNA Covariance, CRISPR Off-Target Mutagenesis ($4^{23}$), Allosteric Pockets ($128^3$), Hi-C Chromatin Routing.
-3. **High-Resolution Vision & Imaging**: Gigapixel Whole-Slide Pathology ($256 \times 256$), SAR Radar Polarimetry, 3D CT/MRI Volumetric Segmentation ($128^3$), 4D Spatiotemporal Grounding.
-4. **Robotics & Physics Simulation**: 14-DoF Robot Arm Motion Planning, Multi-Agent Swarms, Lattice Boltzmann Fluid Dynamics, Tokamak Gyrokinetics (6D), N-Body Gravity.
-5. **Cryptography & Security**: LDPC Hypercube Decoders, Sparse Malware Execution Graphs (64D), ZKP R1CS Verification, Automated Theorem Proving (Lean 4), Line-Rate Network Packet Anomaly (33D).
-6. **Advanced AI & Systems**: 1M+ Extreme Context KV-Cache Alternatives (80MB VRAM), Patch-Preserving ViTs, Hyperdimensional Computing (HDC/VSA), Federated Landmark Consensus.
 
 ---
 
