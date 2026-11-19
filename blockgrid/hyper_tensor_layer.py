@@ -2,9 +2,9 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.slotmix import SlotMixing
-from blockvga.config import BlockGridConfig
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.slotmix import SlotMixing
+from blockgrid.config import BlockGridConfig
 
 class CellTensorOperator(nn.Module):
     """

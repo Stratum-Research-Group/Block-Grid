@@ -2,10 +2,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from blockvga.hyper_config import HyperGridConfig
-from blockvga.slotmix import SlotMixing
-from blockvga.inner import InnerOperator
-from blockvga.config import BlockGridConfig
+from blockgrid.hyper_config import HyperGridConfig
+from blockgrid.slotmix import SlotMixing
+from blockgrid.inner import InnerOperator
+from blockgrid.config import BlockGridConfig
 
 class HyperLandmarkAssignment(nn.Module):
     """

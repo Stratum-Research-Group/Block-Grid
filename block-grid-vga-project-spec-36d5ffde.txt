@@ -1,7 +1,7 @@
 PROJECT SPECIFICATION: BLOCK-VALUED GRID TRANSPORT LAYER
 Working title: BlockGrid
 Naming options (pick one, or ignore all): BlockGrid (descriptive default), Tessell,
-Lattice, Plinth. The code below uses the package name `blockvga`; rename freely.
+Lattice, Plinth. The code below uses the package name `blockgrid`; rename freely.
 
 Status: research proposal. Nothing here has been run. Every performance claim is a
 hypothesis to test, not a result. All numeric thresholds below are proposed
@@ -169,7 +169,7 @@ attention is B*N^2*P*Q*F.
 2. REPO LAYOUT, PACKAGING, COMMANDS
 =====================================================================
     pyproject.toml          # pip-installable, deps: torch, numpy, pyyaml, pytest
-    blockvga/
+    blockgrid/
       __init__.py           # exports BlockGridLayer, BlockGridConfig
       config.py  assignment.py  pooling.py  slotmix.py  inner.py
       layer.py   model.py

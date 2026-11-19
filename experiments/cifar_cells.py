@@ -6,8 +6,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from baselines.perceiver import PerceiverBaseline
 from experiments.common import set_seed, count_parameters
 

@@ -1,7 +1,7 @@
 import time
 import torch
-from blockvga.pooling import BlockPooling
-from blockvga.kernels import triton_pool, triton_readback
+from blockgrid.pooling import BlockPooling
+from blockgrid.kernels import triton_pool, triton_readback
 
 def benchmark_triton_speed():
     device = "cuda"

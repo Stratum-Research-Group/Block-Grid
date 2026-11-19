@@ -2,8 +2,8 @@ import os
 import time
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from experiments.common import set_seed, count_parameters
 from experiments.dataset import SyntheticBlockTransportDataset
 from experiments.run_benchmark import get_stratified_eval_data, train_and_eval_model

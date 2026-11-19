@@ -2,8 +2,8 @@ import pytest
 import torch
 
 triton = pytest.importorskip("triton", reason="Triton not installed")
-from blockvga.pooling import BlockPooling
-from blockvga.kernels import triton_pool, triton_readback
+from blockgrid.pooling import BlockPooling
+from blockgrid.kernels import triton_pool, triton_readback
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Triton requires CUDA")
 def test_triton_pool_equivalence():

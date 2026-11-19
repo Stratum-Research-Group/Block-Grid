@@ -1,7 +1,7 @@
 import pytest
 import torch
-from blockvga.hyper_config import HyperGridConfig
-from blockvga.hyper_layer import HyperGridLayer
+from blockgrid.hyper_config import HyperGridConfig
+from blockgrid.hyper_layer import HyperGridLayer
 
 def test_hypercube_d3():
     # 2 x 2 x 2 hypercube (D=3, N=8 vertices)

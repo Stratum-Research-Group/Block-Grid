@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from blockvga.config import BlockGridConfig
-from blockvga.slotmix import SlotMixing
+from blockgrid.config import BlockGridConfig
+from blockgrid.slotmix import SlotMixing
 
 @dataclass
 class SparseHyperGridConfig:

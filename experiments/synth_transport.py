@@ -2,8 +2,8 @@ import argparse
 import yaml
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from experiments.common import set_seed, memory_preflight, count_parameters
 from experiments.dataset import SyntheticBlockTransportDataset
 

@@ -1,7 +1,7 @@
 import pytest
 import torch
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.hyper_tensor_layer import GeneralizedHyperTensorLayer
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.hyper_tensor_layer import GeneralizedHyperTensorLayer
 
 def test_hyper_tensor_3d_grid_with_3d_tensors():
     """

@@ -116,7 +116,7 @@ For astronomical coordinate spaces where allocating dense tensors is physically 
 
 ```python
 import torch
-from blockvga import BlockGridLayer, BlockGridConfig
+from blockgrid import BlockGridLayer, BlockGridConfig
 
 # Configure 32x32 spatial grid with 16 latent landmark slots
 config = BlockGridConfig(
@@ -141,7 +141,7 @@ print("Output shape:", out.shape) # [2, 32, 32, 4, 4, 4]
 
 ```python
 import torch
-from blockvga import BlockGridLayer, BlockGridConfig
+from blockgrid import BlockGridLayer, BlockGridConfig
 
 # 256x256 grid of 4x4x3 RGB patches = 1 Megapixel canvas
 config = BlockGridConfig(
@@ -159,7 +159,7 @@ print("256x256 Megapixel output:", out.shape) # [4, 256, 256, 4, 4, 3] in ~400ms
 
 ```python
 import torch
-from blockvga import SparseHyperGridConfig, SparseHyperBlockGrid
+from blockgrid import SparseHyperGridConfig, SparseHyperBlockGrid
 
 # 33-dimensional coordinate universe (8.58 Billion potential positions)
 config = SparseHyperGridConfig(
@@ -186,7 +186,7 @@ print("Active 33D routed output:", out.shape) # [2, 1024, 4, 4, 4]
 
 ```python
 import torch
-from blockvga import UnifiedBlockGrid
+from blockgrid import UnifiedBlockGrid
 
 # 22-dimensional Boolean Hypercube (4,194,304 cells)
 model = UnifiedBlockGrid(
@@ -206,7 +206,7 @@ model = UnifiedBlockGrid(
 
 ```python
 import torch
-from blockvga import SparseHyperGridConfig, SparseHyperBlockGrid
+from blockgrid import SparseHyperGridConfig, SparseHyperBlockGrid
 
 cfg = SparseHyperGridConfig(D=16, axis_radix=2, cell_shape=(4, 4, 4), K=16, d=32)
 model = SparseHyperBlockGrid(cfg).cuda().eval()

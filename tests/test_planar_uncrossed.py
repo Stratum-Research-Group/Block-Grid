@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
-from blockvga.slotmix import SlotMixing
+from blockgrid.config import BlockGridConfig
+from blockgrid.slotmix import SlotMixing
 
 def test_planar_uncrossed_mixing():
     """

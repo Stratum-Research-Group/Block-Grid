@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga.unified import UnifiedBlockGrid
+from blockgrid.unified import UnifiedBlockGrid
 
 def test_unified_hypercube_with_neighborhood():
     """

@@ -9,8 +9,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from experiments.dataset import SyntheticBlockTransportDataset
 
 def create_visualizer():

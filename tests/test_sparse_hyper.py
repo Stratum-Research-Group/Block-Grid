@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga.sparse_hyper_layer import SparseHyperGridConfig, SparseHyperBlockGrid
+from blockgrid.sparse_hyper_layer import SparseHyperGridConfig, SparseHyperBlockGrid
 
 def test_sparse_hyper_33d_binary():
     """

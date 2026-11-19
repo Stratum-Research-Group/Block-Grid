@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
+from blockgrid.config import BlockGridConfig
 
 class InnerOperator(nn.Module):
     """

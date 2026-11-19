@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga import UnifiedBlockGrid
+from blockgrid import UnifiedBlockGrid
 
 def test_unified_default_22d_hyper():
     # Test default mode ('hyper' with 22D hypercube)

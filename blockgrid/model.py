@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from typing import List
-from blockvga.config import BlockGridConfig
-from blockvga.layer import BlockGridLayer
+from blockgrid.config import BlockGridConfig
+from blockgrid.layer import BlockGridLayer
 
 class BlockGridModel(nn.Module):
     """

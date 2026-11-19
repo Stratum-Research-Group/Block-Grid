@@ -4,11 +4,11 @@ Includes multi-run warmup, stabilized CUDA timing, and peak VRAM profiling.
 """
 import time
 import torch
-from blockvga.config import BlockGridConfig
-from blockvga.layer import BlockGridLayer
-from blockvga.unified import UnifiedBlockGrid
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.flash_engine import FlashHyperGridEngine
+from blockgrid.config import BlockGridConfig
+from blockgrid.layer import BlockGridLayer
+from blockgrid.unified import UnifiedBlockGrid
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.flash_engine import FlashHyperGridEngine
 from baselines import ISABBaseline, PerceiverBaseline, FullAttentionBaseline
 
 def run_scaling_benchmarks():

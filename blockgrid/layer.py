@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
-from blockvga.assignment import LandmarkAssignment
-from blockvga.pooling import BlockPooling
-from blockvga.slotmix import SlotMixing
-from blockvga.inner import InnerOperator
+from blockgrid.config import BlockGridConfig
+from blockgrid.assignment import LandmarkAssignment
+from blockgrid.pooling import BlockPooling
+from blockgrid.slotmix import SlotMixing
+from blockgrid.inner import InnerOperator
 
 class BlockGridLayer(nn.Module):
     """

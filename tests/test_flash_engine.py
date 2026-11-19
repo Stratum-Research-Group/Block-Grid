@@ -1,7 +1,7 @@
 import pytest
 import torch
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.flash_engine import FlashHyperGridEngine
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.flash_engine import FlashHyperGridEngine
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_flash_engine_streaming_2_to_24():

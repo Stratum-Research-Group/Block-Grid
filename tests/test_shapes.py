@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga import BlockGridConfig, BlockGridLayer
+from blockgrid import BlockGridConfig, BlockGridLayer
 
 def test_shapes_basic():
     # P == Q

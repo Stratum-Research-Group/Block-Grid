@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga import BlockGridConfig, BlockGridLayer
+from blockgrid import BlockGridConfig, BlockGridLayer
 
 def test_multihead_routing_simplex():
     # 4 heads, K=32 -> 8 slots per head

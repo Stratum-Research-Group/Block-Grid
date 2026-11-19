@@ -1,6 +1,6 @@
 import pytest
 import torch
-from blockvga.neighborhood import HypercubeNeighborhoodOperator
+from blockgrid.neighborhood import HypercubeNeighborhoodOperator
 
 def test_hypercube_neighborhood_operator_shapes():
     # Test D=4 hypercube (16 vertices), C=8 features

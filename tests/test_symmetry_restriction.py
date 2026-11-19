@@ -1,6 +1,6 @@
 import torch
-from blockvga import BlockGridConfig
-from blockvga.slotmix import SlotMixing
+from blockgrid import BlockGridConfig
+from blockgrid.slotmix import SlotMixing
 
 def test_symmetry_restriction():
     """

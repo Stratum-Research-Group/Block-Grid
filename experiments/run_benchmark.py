@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any
 
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from baselines import (
     ISABBaseline,
     PerceiverBaseline,

@@ -2,8 +2,8 @@ import os
 import time
 import torch
 import torch.nn as nn
-from blockvga.config import BlockGridConfig
-from blockvga.model import BlockGridModel
+from blockgrid.config import BlockGridConfig
+from blockgrid.model import BlockGridModel
 from baselines.full_attn import FullAttentionBaseline
 from baselines.perceiver import PerceiverBaseline
 from baselines.isab import ISABBaseline

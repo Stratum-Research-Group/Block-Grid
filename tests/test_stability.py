@@ -1,5 +1,5 @@
 import torch
-from blockvga import BlockGridConfig, BlockGridLayer
+from blockgrid import BlockGridConfig, BlockGridLayer
 
 def test_stability_tau_floor():
     """
@@ -36,7 +36,7 @@ def test_zero_mass_slot_stability():
     """
     normalize_slots=True with a zero-mass slot yields 0 via eps, never NaN.
     """
-    from blockvga.pooling import BlockPooling
+    from blockgrid.pooling import BlockPooling
     pooling = BlockPooling(normalize_slots=True, eps=1e-6)
     
     B, H, W, P, Q, F_dim, K = 2, 4, 4, 2, 2, 4, 8

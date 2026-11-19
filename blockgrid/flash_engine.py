@@ -2,8 +2,8 @@ import math
 import torch
 import torch.nn as nn
 from typing import Optional, Callable, Generator
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.hyper_tensor_layer import GeneralizedHyperTensorLayer
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.hyper_tensor_layer import GeneralizedHyperTensorLayer
 
 class FlashHyperGridEngine(nn.Module):
     """

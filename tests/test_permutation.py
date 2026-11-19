@@ -1,5 +1,5 @@
 import torch
-from blockvga import BlockGridConfig, BlockGridLayer
+from blockgrid import BlockGridConfig, BlockGridLayer
 
 def test_permutation_equivariance():
     """

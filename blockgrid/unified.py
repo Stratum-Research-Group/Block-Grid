@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from typing import Tuple, Optional, Union
-from blockvga.config import BlockGridConfig
-from blockvga.layer import BlockGridLayer
-from blockvga.tensor_cell_config import GeneralizedHyperTensorConfig
-from blockvga.hyper_tensor_layer import GeneralizedHyperTensorLayer
-from blockvga.neighborhood import HypercubeNeighborhoodOperator
+from blockgrid.config import BlockGridConfig
+from blockgrid.layer import BlockGridLayer
+from blockgrid.tensor_cell_config import GeneralizedHyperTensorConfig
+from blockgrid.hyper_tensor_layer import GeneralizedHyperTensorLayer
+from blockgrid.neighborhood import HypercubeNeighborhoodOperator
 
 class UnifiedBlockGrid(nn.Module):
     """

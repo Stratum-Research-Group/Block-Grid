@@ -1,6 +1,6 @@
 # Quickstart & API Reference: BlockGrid
 
-`blockvga` is a PyTorch layer for transporting and transforming structured tensor blocks on large virtual grids in linear time $\mathcal{O}(N \cdot K)$.
+`blockgrid` is a PyTorch layer for transporting and transforming structured tensor blocks on large virtual grids in linear time $\mathcal{O}(N \cdot K)$.
 
 ---
 
@@ -18,7 +18,7 @@ Requires: `torch>=2.0.0`, `numpy>=1.20.0`, `pyyaml>=6.0`.
 
 ```python
 import torch
-from blockvga import BlockGridConfig, BlockGridLayer
+from blockgrid import BlockGridConfig, BlockGridLayer
 
 # 1. Configure the virtual grid layer
 config = BlockGridConfig(
@@ -67,7 +67,7 @@ print("Output shape:", out.shape) # [2, 64, 64, 4, 4, 8]
 ## 4. Multi-Layer Models (`BlockGridModel`)
 
 ```python
-from blockvga import BlockGridModel
+from blockgrid import BlockGridModel
 
 # Stack 4 BlockGrid layers with an optional classification head
 model = BlockGridModel(config, num_layers=4, num_classes=10).cuda()
