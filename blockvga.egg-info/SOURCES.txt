@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+blockvga/__init__.py
+blockvga/assignment.py
+blockvga/config.py
+blockvga/inner.py
+blockvga/layer.py
+blockvga/model.py
+blockvga/pooling.py
+blockvga/slotmix.py
+blockvga.egg-info/PKG-INFO
+blockvga.egg-info/SOURCES.txt
+blockvga.egg-info/dependency_links.txt
+blockvga.egg-info/requires.txt
+blockvga.egg-info/top_level.txt

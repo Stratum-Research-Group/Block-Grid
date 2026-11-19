@@ -1,0 +1,392 @@
+PROJECT SPECIFICATION: BLOCK-VALUED GRID TRANSPORT LAYER
+Working title: BlockGrid
+Naming options (pick one, or ignore all): BlockGrid (descriptive default), Tessell,
+Lattice, Plinth. The code below uses the package name `blockvga`; rename freely.
+
+Status: research proposal. Nothing here has been run. Every performance claim is a
+hypothesis to test, not a result. All numeric thresholds below are proposed
+engineering targets for go/no-go decisions, not established properties of the method.
+
+=====================================================================
+0. WHAT THIS PROJECT IS, AND WHAT IT IS NOT
+=====================================================================
+A lightweight attention-family layer for data on a structured grid of cells, where
+each cell holds a block (a small matrix/tensor) instead of one scalar or flat vector.
+
+Input is a real dense array:
+
+    X in R^{B x H x W x P x Q x F}
+
+  B        batch
+  H, W     outer grid axes: WHERE a cell is
+  P, Q     inner block axes: WHAT the cell holds
+  F        feature channels at each inner position
+
+Two kinds of operation are kept separate in the implementation:
+  (a) inter-cell transport: information moves BETWEEN cells across the outer grid
+  (b) intra-cell processing: structure INSIDE each cell's block is transformed
+
+Prior art, stated plainly:
+  - Pooling cells into a small set of latents, processing the latents, and reading
+    back is an established family:
+      - Set Transformer ISAB (Lee et al. 2019), https://arxiv.org/abs/1810.00825
+      - Perceiver / Perceiver IO (Jaegle et al. 2021),
+        https://arxiv.org/abs/2107.14795 (already handles arbitrary-shaped arrays,
+        so preserving block shape is NOT a novel capability)
+      - Slot Attention (Locatello et al. 2020), https://arxiv.org/abs/2006.15055
+  - Axis-structured attention exists: Axial Attention (Ho et al. 2019),
+    https://arxiv.org/abs/1912.12180
+  - The landmark-connector name comes from the IMF repo's SAVG
+    (https://github.com/Stratum-Research-Group/imf, HEAD b978c66), where VGA is a
+    scalar per-token write gate, w(x) = softmax(x.c_i/tau), grid_mod = 1 + w^T G w.
+    This project does NOT retrofit IMF; IMF is a reference for the landmark idea only.
+
+  No novelty is established or claimed: this spec follows a limited prior-art
+  search, and individual parts have close precedents in the family above.
+  Whole-block transport is algebraically identical to transporting flattened payload
+  vectors; keeping axes separate is an implementation choice that only matters when
+  combined with structure-imposing components. The components here that impose
+  actual structure, and are therefore the things worth testing:
+    1. Per-slot two-sided inner operators L_k(Z) = A_k Z B_k^T acting on the P, Q
+       axes of transported blocks (a parameterization not present in vanilla
+       ISAB/Perceiver latent processing).
+    2. Structured parameterizations of the slot-mixing matrix (symmetric vs free).
+       Note: a free G and G = sym(M) + skew(M) from an unconstrained M are EXACTLY
+       the same function class; the decomposition is an analysis lens, not added
+       expressivity. The interesting comparison is restricted vs unrestricted.
+
+  The build's purpose is empirical: does this configuration beat matched-budget
+  flattened latent attention on tasks that require moving block payloads across a
+  grid? The protocol below is designed to answer that honestly, including "no".
+
+=====================================================================
+1. OPERATOR DEFINITION (single layer)
+=====================================================================
+Notation: cell index a = (i, j) over the H x W grid, N = H*W cells.
+V_a in R^{P x Q x F} is the block at cell a.
+
+Interface contract:
+    class BlockGridLayer(nn.Module):
+        def forward(self, X, routing_features=None, positions=None):
+            # X:                [B, H, W, P, Q, F]  payload blocks
+            # routing_features: [B, H, W, R] or None; extra per-cell inputs for
+            #                   routing only (e.g. markers). Projected by a
+            #                   dedicated Linear(R, d) into the summary path.
+            #                   R is set in config. Never mixed into payload
+            #                   and never part of any loss target.
+            # positions:        [B, H, W, 2] integer dtype or None; explicit
+            #                   integer (row, col) indices, range-checked
+            #                   (0 <= row < H, 0 <= col < W). v1 accepts
+            #                   integers only; float coordinates are rejected
+            #                   with a clear error. None = cells use their
+            #                   storage indices (i, j).
+            # returns:          [B, H, W, P, Q, F], same shape as X
+    Baselines receive the same routing_features and positions inputs (concatenated
+    to their per-cell input vectors) so comparisons are input-matched.
+
+Step 1 - Cell summary (routing features only).
+    s_a = MLP( mean-pool(V_a) over (P,Q) )  +  Linear_R(routing_features_a)
+    Both terms are in R^d and are added. Default MLP: Linear(F, d), GELU,
+    Linear(d, d). Linear_R exists only when R > 0.
+    KNOWN BLINDNESS: mean-pooling cannot distinguish blocks that differ only by
+    rearrangements preserving per-feature means, so content routing is blind to
+    such rearrangements. Position routing is unaffected. Optional ablation
+    (summary="structured"): replace the mean-pool branch with
+    Linear(P*Q*F, d), GELU, Linear(d, d) over the flattened block; the
+    Linear_R(routing_features) term is then added the same way.
+    Parameter-heavier; config flag summary="mean" | "structured".
+
+Step 2 - Landmark assignment (positive simplex routing).
+    p_a = RowEmbed[row_a] + ColEmbed[col_a]  in R^d, from two learned tables
+    RowEmbed in R^{H x d}, ColEmbed in R^{W x d}, looked up at the integer
+    positions (default: storage indices).
+    w_a = softmax( (W_p p_a + W_c s_a) / tau ) in R^K,  w_a >= 0, sum_k w_{a,k} = 1
+    tau learnable, clamped >= 0.05 each forward.
+    Ablations: position-only, content-only, both.
+
+Step 3 - Write / pool (whole blocks, no flattening).
+    Z_k = sum_a w_{a,k} * V_a          ->  Z in R^{B x K x P x Q x F}
+    einsum: 'bijpqf,bijk->bkpqf'.
+    Optional slot-mass normalization (config flag, default OFF):
+        Z~_k = Z_k / (m_k + eps),  m_k = sum_a w_{a,k} >= 0,  eps = 1e-6
+    With normalization ON the composed transport map is W G D^{-1} W^T V
+    (D = diag(m_k) + eps I), not W G W^T V: mean vs sum semantics, compared as an
+    ablation. A zero-mass slot yields Z~_k = 0 via eps, never NaN.
+
+Step 4 - Slot mixing (signed linear map over slots).
+    Default: G is a plain free K x K matrix, init N(0, 0.02).
+        Z'_l = sum_k G_{lk} * Z_k
+    This is attention-like in shape but not standard probability attention: there
+    is no softmax or denominator, and negative entries are legal linear
+    coefficients, not negative probabilities. Constrained variant (config flag):
+    slot_mix="symmetric" parameterizes G = (M + M^T)/2 from free M. The ablation
+    measures what that restriction costs. A skew/sym split of a learned free G is
+    a reporting decomposition only and adds nothing under unconstrained M.
+
+Step 5 - Optional per-slot inner operator (the structural hypothesis).
+    Z'_k <- L_k(Z'_k):  for each feature f:  Z'_k[:, :, f] <- A_k Z'_k[:, :, f] B_k^T
+    A_k in R^{P x P}, B_k in R^{Q x Q}, init identity + N(0, 0.01).
+    A symmetric/antisymmetric split of the BLOCK itself requires P = Q (square
+    inner axes); do not split blocks when P != Q.
+
+Step 6 - Read back.
+    Default (tied):  Y_a = sum_k w_{a,k} * Z'_k   ->  Y in R^{B x H x W x P x Q x F}
+    Ablation (untied): r_a = softmax((W_p' p_a + W_c' s_a)/tau), an independent
+    simplex; the read is then a convex combination of slots under weights
+    different from the write.
+
+Step 7 - Residual combine.
+    out_a = V_a + gamma * proj(Y_a)
+    proj: per-(P,Q)-position Linear(F, F) shared across cells; it acts within a
+    cell and does not mix cells, so it does not change the cell-mixing structure
+    of Y. gamma: learnable scalar per layer, init 0.1 (NOT 0: at exactly 0,
+    internal parameters receive zero gradient on the first step; unit tests that
+    check gradient flow must run with gamma != 0).
+
+Composed reading (tied weights, normalization OFF, inner op OFF):
+    Y = W G W^T V
+For frozen W this is a rank <= K linear map ACROSS CELLS. With input-dependent
+assignment the layer is nonlinear and not rank-K overall, and the residual path
+(identity over cells) is full-rank across cells. Do not describe the whole layer
+as "rank K".
+
+FLOPs per layer (leading terms, dense):
+    summary pool     B * N * P * Q * F
+    summary MLP      B * N * (F*d + d*d)   (+ B * N * R * d if routing_features)
+    assignment       B * N * d * K
+    pool + read      2 * B * N * K * P * Q * F
+    slot mix         B * K^2 * P * Q * F
+    inner (opt)      B * K * (P^2 Q + P Q^2) * F
+    proj             B * N * P * Q * F^2
+Memory: X itself B*N*P*Q*F; slots 2*B*K*P*Q*F (Z, Z'); routing weights B*N*K.
+Autograd stores additional intermediates that depend on the implementation;
+measure, do not assume a fixed multiplier. The softmax and any normalization
+denominator are computed in fp32. FLOP counts are counting arguments, not
+wall-clock claims. The transport core is linear in N; full pairwise cell
+attention is B*N^2*P*Q*F.
+
+=====================================================================
+2. REPO LAYOUT, PACKAGING, COMMANDS
+=====================================================================
+    pyproject.toml          # pip-installable, deps: torch, numpy, pyyaml, pytest
+    blockvga/
+      __init__.py           # exports BlockGridLayer, BlockGridConfig
+      config.py  assignment.py  pooling.py  slotmix.py  inner.py
+      layer.py   model.py
+    baselines/
+      isab.py  perceiver.py  axial.py  linear_attn.py  full_attn.py  local_conv.py
+    experiments/
+      synth_transport.py   # python -m experiments.synth_transport --config <yaml>
+      cifar_cells.py       # python -m experiments.cifar_cells --config <yaml>
+      common.py            # seeding, budget matching, preflight, run logging
+    configs/
+      pilot_transport.yaml  full_transport.yaml  pilot_cifar.yaml
+    tests/
+      test_shapes.py  test_permutation.py  test_symmetry_restriction.py
+      test_gradients.py  test_stability.py
+
+    @dataclass
+    class BlockGridConfig:
+        H: int; W: int; P: int; Q: int; F: int
+        R: int = 0                    # routing-feature width; 0 = unused
+        K: int = 32
+        d: int = 128
+        tau_init: float = 1.0         # floored at 0.05
+        normalize_slots: bool = False
+        assignment: str = "pos+content"   # "pos" | "content" | "pos+content"
+        summary: str = "mean"         # "mean" | "structured"
+        slot_mix: str = "free"        # "free" | "symmetric"
+        tied_readback: bool = True
+        inner_op: bool = False
+        gamma_init: float = 0.1
+        layernorm_cells: bool = False
+
+Minimal commands:
+    pip install -e .
+    pytest tests/ -q
+    python -m experiments.synth_transport --config configs/pilot_transport.yaml
+    python -m experiments.synth_transport --config configs/full_transport.yaml  # opt-in
+    python -m experiments.cifar_cells --config configs/pilot_cifar.yaml
+
+Build order:
+    T1 packaging + config + pooling + slotmix + layer (inner_op off), flags wired
+    T2 unit tests (section 3)
+    T3 baselines with budget matching
+    T4 synthetic transport pilot, then full protocol only as an explicit opt-in
+    T5 CIFAR-cells smoke test
+    T6 report
+
+=====================================================================
+3. UNIT TESTS (must pass before any experiment)
+=====================================================================
+test_shapes: output shape equals input shape; P != Q and P == Q; with and
+    without routing_features (R > 0 and R = 0); explicit positions vs default.
+test_permutation: permuting cells together with their positions and routing
+    features permutes output blocks identically (tolerance 1e-5). Valid only
+    because assignment depends on position/content, not storage order.
+test_symmetry_restriction: slot_mix="symmetric" yields ||G - G^T|| = 0; "free"
+    can represent a hand-set asymmetric G; the reporting split sym(G)+skew(G)
+    reconstructs any learned G and skew(G) flips sign under slot transpose.
+    Tests code, not meaning.
+test_gradients: torch.autograd.gradcheck (float64) with gamma = 1.0; gradients
+    flow through tied w_a into BOTH pool and readback, into the routing-feature
+    projection, and into A_k, B_k when inner_op is on.
+test_stability: 100 random forward/backward passes at the tau floor, K = 128;
+    no NaN/Inf; normalize_slots=True with a zero-mass slot yields 0, not NaN.
+
+=====================================================================
+4. OPTIMIZATION AND COMPUTE BUDGET DISCIPLINE
+=====================================================================
+- The layer mixes linear maps with softmax, an MLP, and clamped tau: standard
+  autodiff, no custom backward.
+- AdamW, lr 3e-4, weight decay 0.01, cosine schedule, grad clip 1.0. Frozen
+  defaults; any change is a new logged run.
+- bf16 mixed precision allowed; softmax and denominators in fp32.
+- Memory preflight (required before any run): (a) compute an analytical
+  activation-memory estimate from the config; (b) run ONE allocated
+  forward/backward at the target shapes with a tiny batch and measure peak
+  memory; (c) grow batch size conservatively (at most 2x per step) only while
+  projected peak stays within the DECLARED hardware budget written in the run
+  config (e.g. gpus_memory_gb). Stop before OOM; never rely on
+  halve-after-crash. No memory guarantee is made by this spec.
+- Staged compute: the PILOT configs are the default (small steps/batch, see
+  section 5). The FULL protocol is opt-in and runs only after pilot gates pass.
+- Every run logs: config hash, seed, git commit, parameter count, measured
+  FLOPs, measured peak memory, wall-clock per epoch, checkpoint rule, and
+  finish reason (completed / gate-failed / early-stopped / diverged / bug /
+  budget-stop). Failed runs are logged, never silently dropped.
+
+=====================================================================
+5. EXPERIMENT PROTOCOL (fixed up front; no mid-run changes)
+=====================================================================
+Budget matching: every baseline is matched to BlockGrid on parameter count
+(within 5%) and measured FLOPs per forward (within 10%), and receives identical
+routing_features/positions inputs. Report both numbers per model. Flattening
+baselines reshape each cell to R^{P*Q*F} and back.
+
+STAGE 1 - Synthetic block transport (primary question).
+  Setup: H = W = 16 grid, N = 256 cells. Payload P = Q = 8, F = 4.
+  Per episode:
+    - payload initialized with background noise N(0, 0.1)
+    - one uniformly random source cell receives a random target pattern
+      (i.i.d. N(0,1) over its 8x8x4 block)
+    - one uniformly random destination cell, distinct from source
+    - markers enter ONLY as routing_features: [B, H, W, 2], channel 0 = 1 at
+      source, channel 1 = 1 at destination, else 0 (R = 2). Never payload,
+      never loss.
+    - positions are integer grid coordinates; distance is Manhattan,
+      D = |i_s - i_d| + |j_s - j_d|, range 1..30
+    - distance bins: {1-2, 3-5, 6-10, 11-20, 21-30}
+  Task 1a (identity copy): output the source pattern at the destination cell;
+    loss = MSE on payload at the destination only. NOTE: this task does not
+    require inner transforms; no inner_op benefit is expected on 1a, and a null
+    A2 result on 1a is not evidence against inner operators.
+  Task 1b (known two-sided transform): the required output is
+    A* V_src B*^T for fixed, known, randomly drawn full-rank A*, B* (drawn once
+    per experiment and frozen, 8x8). This variant exists specifically to probe
+    whether per-slot inner operators can represent a required block transform;
+    A2 (inner_op on/off) is interpreted on 1b, not 1a.
+  Splits and evaluation sets:
+    - training episodes: i.i.d. stream, bins 1-20 only (bin 21-30 held out)
+    - validation: a FIXED set of 10k episodes (fixed generator seed list,
+      recorded in config), identical across checkpoints and models; bin
+      frequencies stratified so every bin 1-20 is represented proportionally
+    - locked test: 20k episodes, fixed seed list, stratified so every bin
+      (including held-out 21-30) has at least 500 episodes
+  Checkpoint rule: evaluate on the fixed validation set every 1k steps; keep
+  the checkpoint with the lowest validation MSE; an improvement counts only if
+  relative MSE reduction >= 0.1%; early stop after 5 evaluations without
+  improvement.
+  Compute: PILOT = batch 32, 10k steps, 1 seed per arm, memory preflight per
+  section 4. FULL (opt-in after pilot gates) = batch 64, 50k steps.
+  Models: 2 BlockGridLayers; baselines B1 ISAB, B2 Perceiver-style, B3 axial,
+  B4 linear attention, B5 full attention (N = 256), B6 local-conv stack with
+  depth sufficient for full-grid receptive field. No impossibility claims for
+  local models; measured behavior only.
+  Ablations (one config change each, same protocol):
+      A1 slot_mix: free vs symmetric
+      A2 inner_op: on vs off   (interpreted on task 1b)
+      A3 assignment: pos / content / pos+content
+      A4 normalize_slots: on vs off
+      A5 summary: mean vs structured
+      A6 K in {16, 64} (32 is default)
+  Selection and statistics:
+    - select each model family's best arm by validation MSE; freeze arms; no
+      further selection after this point
+    - FULL stage trains 5 replicas per frozen arm (seeds fixed in config)
+    - locked test: evaluate each trained replica once
+    - comparisons are PAIRED at the episode level within a seed (identical
+      episode seed lists across models), then aggregated per seed; report
+      per-seed means and a bootstrap 95% CI across the 5 seeds; episode-level
+      CIs describe episode variance, NOT training-seed uncertainty, and are
+      labeled as such. With only 5 seeds, seed-level uncertainty is coarse;
+      state that limitation in the report.
+    - the theoretical target MSE is zero: the source pattern is fully
+      observable, so there is no irreducible noise floor. Near-zero MSE values
+      reflect numerical/evaluation floors only; in that regime report cosine
+      similarity and absolute-error values instead of relative margins.
+  Gates (engineering go/no-go targets, not proofs):
+    G1 (pipeline sanity): BlockGrid validation MSE in bins >= 6-10 at least 10x
+       below the no-transport control (Y-path removed). Failing G1 means debug
+       the pipeline first; a modest margin would NOT prove the transport path
+       is not learning, only that the target was not met.
+    G2: BlockGrid test MSE within 20% of B5 (full attention) on trained bins.
+    G3: on the locked test, BlockGrid beats the better of {B1, B2} with paired
+       MSE ratio <= 0.85 and the seed-bootstrap 95% CI excluding 1.0, in bins
+       11-20, on task 1a; and separately the inner_op-on arm beats inner_op-off
+       on task 1b by the same criterion if inner operators are claimed to help.
+  Interpretation discipline: if G3 fails, the conclusion is scoped to these
+  budgets, tasks, and settings. A G3 miss on 1a does not attribute the cause to
+  the structured components without the A1/A2/A5 ablation results, and a null
+  A2 on 1a is uninformative by design. Report what was measured, nothing more.
+
+STAGE 2 - CIFAR-10 smoke test (only if G1 and G2 pass).
+  Each 32x32 image is an 8x8 grid of 4x4 RGB patches: P = Q = 4, F = 3. An
+  optional learned per-cell Linear(3, F') with F' = 12 is a flagged variant,
+  stated as an added projection, not raw data. 4 layers, mean-pool, linear
+  head. Same recipe, 20 epochs, 3 seeds, pilot compute.
+  Gate G4: BlockGrid within 1.5% accuracy of budget-matched B2. A usefulness
+  smoke test, not a SOTA attempt.
+
+Stage 3 (e.g. video grids, inner operators at scale) is deferred: design it
+only after Stage 1-2 results exist, with its own written protocol. No claims
+about learned temporal direction, geometry, or causality are made anywhere in
+this project; grid axes carry no inherent ordering semantics unless a task
+imposes one.
+
+=====================================================================
+6. LIMITATIONS AND NON-CLAIMS
+=====================================================================
+- The K-slot path is a bottleneck: whatever assignment cannot route through K
+  slots cannot be transported. K is a hard capacity choice.
+- Slot mixing is attention-like but not standard probability attention: signed
+  linear coefficients, no softmax, no normalization semantics for G.
+- Whole-block transport equals flattened-payload transport algebraically; block
+  structure matters only through the inner operators and routing summaries.
+  Shape preservation is an implementation property, not a capability claim
+  (Perceiver IO already handles arbitrary array shapes).
+- Free G and sym+skew(M) from unconstrained M are the same function class;
+  symmetric-only G is a restriction and A1 measures what that restriction costs.
+- Mean-pool routing summaries are blind to mean-preserving rearrangements of a
+  block; A5 tests whether that matters.
+- No claim that the layer learns time, geometry, direction, or causality.
+- Keeping blocks dense costs N*P*Q*F storage. This layer buys structure, not
+  compression.
+- Linear-in-N is a FLOP count, not a measured speed claim.
+- No literature novelty is claimed. The deliverable is a working layer plus an
+  honest matched-budget comparison against the latent-attention family it
+  belongs to.
+
+=====================================================================
+7. DEFINITION OF DONE
+=====================================================================
+- pip install -e . works; all section-3 tests pass; the three pilot commands
+  run end to end.
+- Stage 1 pilot and (if opted in) full results reported exactly as section 5
+  specifies: fixed validation set, frozen arms, 5-seed locked test, paired
+  episode comparisons, seed-bootstrap CIs with the 5-seed limitation stated,
+  held-out bin 21-30 results.
+- Ablation table A1-A6 with task-1a/1b interpretation rules followed.
+- Stage 2 G4 if reached.
+- RESULTS.md stating plainly which components helped, which did not, at which
+  budgets, against B1-B6, with every run's finish reason.
