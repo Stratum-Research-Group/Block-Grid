@@ -41,7 +41,12 @@ class LandmarkAssignment(nn.Module):
         else:
             self.linear_r = None
             
-        # Routing projections to K slots
+        # Routing projections to K slots (or num_heads * slots_per_head)
+        self.num_heads = config.num_heads
+        if config.K % config.num_heads != 0:
+            raise ValueError(f"K ({config.K}) must be divisible by num_heads ({config.num_heads})")
+        self.slots_per_head = config.K // config.num_heads
+
         self.W_p = nn.Linear(d, K, bias=False)
         self.W_c = nn.Linear(d, K, bias=False)
         
@@ -59,6 +64,20 @@ class LandmarkAssignment(nn.Module):
     def get_temperature(self) -> torch.Tensor:
         tau = torch.exp(self.log_tau)
         return torch.clamp(tau, min=0.05)
+
+    def _compute_simplex(self, logits: torch.Tensor, V_dtype: torch.dtype) -> torch.Tensor:
+        # logits: [B, H, W, K]
+        # Reshape to [B, H, W, num_heads, slots_per_head]
+        B, H, W, K = logits.shape
+        tau = self.get_temperature()
+        logits_reshaped = logits.view(B, H, W, self.num_heads, self.slots_per_head)
+        
+        if V_dtype in (torch.float16, torch.bfloat16):
+            w = F.softmax((logits_reshaped / tau).float(), dim=-1).to(V_dtype)
+        else:
+            w = F.softmax(logits_reshaped / tau, dim=-1)
+            
+        return w.view(B, H, W, K)
 
     def forward(self, V, routing_features=None, positions=None):
         """
@@ -109,8 +128,6 @@ class LandmarkAssignment(nn.Module):
                 raise ValueError(f"routing_features must be provided when R={self.config.R} > 0")
             s_a = s_a + self.linear_r(routing_features)
             
-        tau = self.get_temperature()
-        
         # Compute logits for write
         logits_write = 0.0
         if "pos" in self.config.assignment:
@@ -118,11 +135,7 @@ class LandmarkAssignment(nn.Module):
         if "content" in self.config.assignment:
             logits_write = logits_write + self.W_c(s_a)
             
-        # Compute softmax: keep in float64 if input is double, float32 if half/bfloat16
-        if V.dtype in (torch.float16, torch.bfloat16):
-            w_write = F.softmax((logits_write / tau).float(), dim=-1).to(V.dtype)
-        else:
-            w_write = F.softmax(logits_write / tau, dim=-1)
+        w_write = self._compute_simplex(logits_write, V.dtype)
         
         if self.config.tied_readback:
             w_read = w_write
@@ -132,9 +145,8 @@ class LandmarkAssignment(nn.Module):
                 logits_read = logits_read + self.W_p_read(p_a)
             if "content" in self.config.assignment:
                 logits_read = logits_read + self.W_c_read(s_a)
-            if V.dtype in (torch.float16, torch.bfloat16):
-                w_read = F.softmax((logits_read / tau).float(), dim=-1).to(V.dtype)
-            else:
-                w_read = F.softmax(logits_read / tau, dim=-1)
+            w_read = self._compute_simplex(logits_read, V.dtype)
+            
+        return w_write, w_read
             
         return w_write, w_read

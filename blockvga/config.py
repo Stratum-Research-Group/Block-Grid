@@ -9,6 +9,7 @@ class BlockGridConfig:
     F: int
     R: int = 0                          # routing-feature width; 0 = unused
     K: int = 32                         # number of landmark slots
+    num_heads: int = 1                  # number of multi-head routing slots (K must be divisible by num_heads)
     d: int = 128                        # routing embedding dimension
     tau_init: float = 1.0               # routing softmax temperature (floored at 0.05)
     normalize_slots: bool = False       # slot-mass normalization (mean vs sum semantics)
