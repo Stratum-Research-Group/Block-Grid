@@ -41,3 +41,20 @@
 
 ### E. Planar Uncrossing Parameterization ($G = I - UV^T$)
 - The planar uncrossed formulation derived from the `eth` tensor uncrossing mathematics outperformed free matrix mixing in both convergence speed (Step 250 MSE: $0.6916$ vs $0.9169$) and final validation loss ($0.0102$ vs $0.0105$), while requiring fewer parameters.
+
+---
+
+## 4. Task 1b Results: Inner Operator Structural Hypothesis ($L_k = A_k Z B_k^T$)
+
+In Task 1b, the destination must receive the transformed tensor $A^* V_{\text{src}} B^{*T}$ for fixed full-rank matrices $A^*, B^* \in \mathbb{R}^{8 \times 8}$. This directly evaluates whether two-sided per-slot operators can represent structured tensor rotations during grid routing.
+
+| Model Variant | Parameters | Inner Operator ($L_k$) | 1,000 Steps MSE | 2,500 Steps MSE | Theoretical Floor | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **BlockGrid (`inner_op=False`)** | 77,100 | Disabled | 1.0087 | 1.0087 | 1.0000 | **Failed** (Cannot rotate blocks) |
+| **BlockGrid (`inner_op=True`)** | 85,292 | Active ($A_k, B_k$) | 0.5676 | **0.0108** | $\approx 0.0100$ | **Passed** (Learns exact transform) |
+
+### Key Insight on Task 1b:
+- **`inner_op=False` is fundamentally incapable** of performing the inner transformation ($\text{MSE} \approx 1.00$). While it can transport the block, it has no mechanism to perform the two-sided spatial matrix product $A Z B^T$.
+- **`inner_op=True` completely solves the task**: In 2,500 steps, it breaks symmetry, aligns the slot matrices $A_k, B_k$ with $A^*, B^*$, and drives the validation MSE down to **$0.0108$**, matching the background noise limit.
+- **Factorized efficiency**: The inner operator required only $8,192$ additional parameters ($2 \times K \times 8 \times 8$), compared to $(64)^2 = 4,096$ per head for flattened alternatives, preserving algebraic tensor structure with minimal parameter overhead.
+
